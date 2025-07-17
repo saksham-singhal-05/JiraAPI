@@ -2,6 +2,7 @@ streamlit
 joblib
 pyyaml
 numpy
+uvicorn
 scikit-learn
 sentence-transformers
 openai
