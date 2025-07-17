@@ -1,0 +1,18 @@
+embedding_provider: 'transformers' 
+
+openai:
+  api_key: ''
+  embedding_model: 'text-embedding-3-small'
+  dim: 1536 
+
+transformers:
+  model_name: 'all-MiniLM-L6-v2'
+  dim: 384 
+
+postgres:
+  host: 'localhost'
+  port: 5432
+  database: 'tickets'
+  user: 'postgres'
+  password: 'sql@123'
+
