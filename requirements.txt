@@ -1,8 +1,9 @@
-streamlit
-joblib
-pyyaml
-numpy
-uvicorn
-scikit-learn
-sentence-transformers
+fastapi
+pydantic
 openai
+uvicorn
+joblib==1.4.2
+pyyaml
+numpy==2.0.2
+scikit-learn==1.5.2
+sentence-transformers==5.0.0
