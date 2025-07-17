@@ -6,5 +6,4 @@ pyyaml
 numpy==2.0.2
 scikit-learn==1.5.2
 sentence-transformers==5.0.0
-openai
 xgboost==3.0.2
