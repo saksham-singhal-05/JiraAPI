@@ -7,7 +7,7 @@ import numpy as np
 
 app = FastAPI(
     title="Jira Automated Assignee API",
-    description="Optimized API for predicting ticket assignee",
+    description="Memory-Optimized API for SVC-Only Predictions",
     version="1.0.0"
 )
 
@@ -28,12 +28,10 @@ def load_config():
     with open("config.yaml", "r") as f:
         return yaml.safe_load(f)
 
-# Load all models and config ONCE at startup (outside endpoints)
+# Load SVC model and config ONCE at startup
 try:
     cfg = load_config()
-    xgb_model = joblib.load("xgb_model.joblib")
     svc_model = joblib.load("svc_model.joblib")
-    rf_model = joblib.load("rf_model.joblib")
     label_encoder = joblib.load("label_encoder.joblib")
     embedding_method = None
     embedding_model = None
@@ -41,13 +39,11 @@ try:
         import openai
         openai.api_key = cfg["openai"]["api_key"]
         embedding_method = "openai"
-        # No heavy model loaded for OpenAI
     else:
         from sentence_transformers import SentenceTransformer
         embedding_model = SentenceTransformer(cfg["transformers"]["model_name"])
         embedding_method = "local"
 except Exception as e:
-    # All errors on startup will prevent API from serving
     raise RuntimeError(f"Model or config loading failed: {e}")
 
 def get_embedding(text):
@@ -75,17 +71,13 @@ async def predict(ticket: Ticket):
     combined_text = summary + " " + description
     try:
         emb = get_embedding(combined_text).reshape(1, -1)
-        pred_xgb = label_encoder.inverse_transform(xgb_model.predict(emb))[0]
         pred_svc = label_encoder.inverse_transform(svc_model.predict(emb))[0]
-        pred_rf = label_encoder.inverse_transform(rf_model.predict(emb))[0]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inference error: {str(e)}")
 
     return {
         "predictions": {
-            "XGBoost": pred_xgb,
-            "SVC": pred_svc,
-            "RandomForest": pred_rf
+            "SVC": pred_svc
         },
         "success": True
     }
