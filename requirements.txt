@@ -1,8 +1,12 @@
-fastapi
-uvicorn
-pydantic
+
+flask==3.0.3
+flask-cors==4.0.1
+
 joblib==1.4.2
 pyyaml
 numpy==2.0.2
 scikit-learn==1.5.2
 sentence-transformers==5.0.0
+
+
+#openai
