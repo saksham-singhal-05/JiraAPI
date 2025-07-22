@@ -7,7 +7,7 @@ import numpy as np
 
 app = FastAPI(
     title="Jira Automated Assignee API",
-    description="Memory-Optimized API for SVC-Only Predictions",
+    description="API for SVC-Only Predictions",
     version="1.0.0"
 )
 
