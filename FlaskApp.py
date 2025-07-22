@@ -4,20 +4,22 @@ import joblib
 import yaml
 import numpy as np
 
-
 app = Flask(__name__)
-CORS(app)  #allowing all domains
-
+CORS(app)  # allowing all domains
 
 def load_config():
     with open("config.yaml", "r") as f:
         return yaml.safe_load(f)
 
-
 try:
     cfg = load_config()
     svc_model = joblib.load("svc_model.joblib")
+    rf_model = joblib.load("rf_model.joblib")
+    xgb_model = joblib.load("xgb_model.joblib")
     label_encoder = joblib.load("label_encoder.joblib")
+
+    model_to_use = cfg.get("model_to_use", 0)  # default to 0 (svc)
+
     embedding_method = None
     embedding_model = None
     if cfg.get("embedding_provider") == "openai":
@@ -28,6 +30,7 @@ try:
         from sentence_transformers import SentenceTransformer
         embedding_model = SentenceTransformer(cfg["transformers"]["model_name"])
         embedding_method = "local"
+
 except Exception as e:
     raise RuntimeError(f"Model or config loading failed: {e}")
 
@@ -46,29 +49,54 @@ def get_embedding(text):
     except Exception as e:
         raise RuntimeError(f"Embedding failed: {e}")
 
+def top_n_predictions(model, X, label_encoder, n=3):
+    if hasattr(model, "predict_proba"):
+        proba = model.predict_proba(X)[0]  # probs for single sample
+        top_n_idx = np.argsort(proba)[::-1][:n]
+        labels = label_encoder.inverse_transform(top_n_idx)
+        scores = proba[top_n_idx]
+        return list(zip(labels, scores))
+    else:
+        # fallback: use predict and assign score 1.0 for predicted class
+        pred = model.predict(X)
+        label = label_encoder.inverse_transform(pred)[0]
+        return [(label, 1.0)]
 
-#local setup
+model_map = {
+    0: ("SVC", svc_model),
+    1: ("RandomForest", rf_model),
+    2: ("XGBoost", xgb_model)
+}
+
 @app.route("/predict", methods=["POST"])
 def predict():
     data = request.get_json(force=True) or {}
     summary = data.get("summary", "")
     description = data.get("description", "")
 
-
     if not summary and not description:
         return jsonify({"success": False, "error": "Provide at least summary or description."}), 400
-
 
     combined_text = summary + " " + description
     try:
         emb = get_embedding(combined_text).reshape(1, -1)
-        pred_svc = label_encoder.inverse_transform(svc_model.predict(emb))[0]
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Embedding error: {str(e)}"}), 500
+
+    try:
+        model_name, model_obj = model_map.get(model_to_use, (None, None))
+        if model_obj is None:
+            return jsonify({"success": False, "error": "Invalid model_to_use config value."}), 500
+
+        preds = top_n_predictions(model_obj, emb, label_encoder)
+
     except Exception as e:
         return jsonify({"success": False, "error": f"Inference error: {str(e)}"}), 500
 
-
     return jsonify({
-        "predictions": {"SVC": pred_svc},
+        "predictions": {
+            model_name: [{"label": label, "score": float(score)} for label, score in preds]
+        },
         "success": True
     })
 
@@ -80,4 +108,3 @@ def handle_global_exception(e):
 
 if __name__ == "__main__":
     app.run(debug=True)
-    import requests
